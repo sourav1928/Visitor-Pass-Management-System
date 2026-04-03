@@ -11,6 +11,13 @@ const getPasses = async (req, res) => {
     if (status) query.status = status;
     if (visitorId) query.visitor = visitorId;
 
+    // ✅ Visitors only see their own passes
+    if (req.user.role === 'visitor') {
+      const visitor = await Visitor.findOne({ email: req.user.email });
+      if (!visitor) return res.json({ passes: [], total: 0, page: 1, pages: 0 });
+      query.visitor = visitor._id;
+    }
+
     // Auto-expire passes
     await Pass.updateMany(
       { status: 'active', validUntil: { $lt: new Date() } },

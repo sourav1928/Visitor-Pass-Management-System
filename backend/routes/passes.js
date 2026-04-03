@@ -9,10 +9,11 @@ const { authorize } = require('../middleware/roles');
 
 router.use(protect);
 
-router.get('/', authorize('admin', 'security'), getPasses);
+// ✅ visitor added so they can see their own passes
+router.get('/', authorize('admin', 'security', 'visitor'), getPasses);
 router.get('/qr/:qrCode', authorize('admin', 'security'), getPassByQR);
-router.get('/:id', getPass);
-router.get('/:id/pdf', downloadPassPDF);
+router.get('/:id', authorize('admin', 'security', 'visitor'), getPass);
+router.get('/:id/pdf', authorize('admin', 'security', 'visitor'), downloadPassPDF);
 router.post('/issue', authorize('admin', 'security'), issuePass);
 router.patch('/:id/revoke', authorize('admin'), revokePass);
 
