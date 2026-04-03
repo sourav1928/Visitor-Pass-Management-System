@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Visitor = require('../models/Visitor');
 
-// Generate JWT
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRE || '7d',
@@ -13,20 +13,16 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
+    if (!email || !password)
       return res.status(400).json({ message: 'Email and password are required' });
-    }
 
-    // Include password (select:false by default)
     const user = await User.findOne({ email }).select('+password');
 
-    if (!user || !(await user.matchPassword(password))) {
+    if (!user || !(await user.matchPassword(password)))
       return res.status(401).json({ message: 'Invalid email or password' });
-    }
 
-    if (!user.isActive) {
+    if (!user.isActive)
       return res.status(401).json({ message: 'Your account has been deactivated' });
-    }
 
     const token = generateToken(user._id);
 
@@ -47,30 +43,36 @@ const login = async (req, res) => {
   }
 };
 
-// @POST /api/auth/register
-// Public: anyone can self-register as visitor
-// Admin only: can assign roles (security, employee, admin)
+// @POST /api/auth/register — public visitor self-registration
 const register = async (req, res) => {
   try {
-    const { name, email, password, phone, company, address, idType, idNumber, department } = req.body;
+    const { name, email, password, phone, company, address, idType, idNumber } = req.body;
 
     if (!name || !email || !password)
       return res.status(400).json({ message: 'Name, email and password are required' });
 
+    // Check user already exists
     const exists = await User.findOne({ email });
     if (exists)
       return res.status(400).json({ message: 'An account with this email already exists' });
 
-    // Role: admin can set any role, public register always = visitor
-    let role = 'visitor';
-    if (req.user?.role === 'admin' && req.body.role) {
-      role = req.body.role;
-    }
-
+    // Always visitor on public register
     const user = await User.create({
-      name, email, password, role,
-      phone, company, address, idType, idNumber, department,
+      name, email, password,
+      role: 'visitor',
+      phone, company, address,
     });
+
+    // ✅ Also create Visitor profile so they appear in /admin/visitors
+    const visitorExists = await Visitor.findOne({ email });
+    if (!visitorExists) {
+      await Visitor.create({
+        name, email, phone,
+        company, address,
+        idType, idNumber,
+        userAccount: user._id,
+      });
+    }
 
     const token = generateToken(user._id);
 
@@ -100,9 +102,8 @@ const changePassword = async (req, res) => {
     const { currentPassword, newPassword } = req.body;
     const user = await User.findById(req.user._id).select('+password');
 
-    if (!(await user.matchPassword(currentPassword))) {
+    if (!(await user.matchPassword(currentPassword)))
       return res.status(400).json({ message: 'Current password is incorrect' });
-    }
 
     user.password = newPassword;
     await user.save();

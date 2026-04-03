@@ -7,18 +7,26 @@ const { authorize } = require('../middleware/roles');
 router.use(protect);
 router.use(authorize('admin', 'security'));
 
-// GET all users
+// GET all users — never return visitors (they belong in /visitors)
 router.get('/', async (req, res) => {
   try {
     const { role, search } = req.query;
     const query = {};
-    if (role) query.role = role;
+
+    // Only staff roles — exclude visitor always
+    if (role && role !== 'visitor') {
+      query.role = role;
+    } else {
+      query.role = { $in: ['admin', 'security', 'employee'] };
+    }
+
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
         { email: { $regex: search, $options: 'i' } },
       ];
     }
+
     const users = await User.find(query).sort({ createdAt: -1 });
     res.json({ users });
   } catch (err) {
@@ -26,12 +34,19 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST create user
-router.post('/', async (req, res) => {
+// POST create staff user (admin creates security/employee accounts)
+router.post('/', authorize('admin'), async (req, res) => {
   try {
     const { name, email, password, role, phone, department } = req.body;
+
+    // Prevent creating visitor accounts from here
+    if (role === 'visitor') {
+      return res.status(400).json({ message: 'Use the register page to create visitor accounts' });
+    }
+
     const exists = await User.findOne({ email });
     if (exists) return res.status(400).json({ message: 'Email already exists' });
+
     const user = await User.create({ name, email, password, role, phone, department });
     res.status(201).json({ user });
   } catch (err) {
@@ -40,9 +55,9 @@ router.post('/', async (req, res) => {
 });
 
 // PUT update user
-router.put('/:id', async (req, res) => {
+router.put('/:id', authorize('admin'), async (req, res) => {
   try {
-    const { password, ...rest } = req.body; // don't update password here
+    const { password, ...rest } = req.body;
     const user = await User.findByIdAndUpdate(req.params.id, rest, { new: true });
     if (!user) return res.status(404).json({ message: 'User not found' });
     res.json({ user });
@@ -52,7 +67,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE user
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authorize('admin'), async (req, res) => {
   try {
     if (req.params.id === req.user._id.toString()) {
       return res.status(400).json({ message: 'Cannot delete your own account' });
