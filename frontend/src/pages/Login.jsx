@@ -31,16 +31,6 @@ const Login = () => {
     }
   };
 
-  const demoLogin = (role) => {
-    const demos = {
-      admin: { email: 'sourav@admin.com', password: 'adminsourav123' },
-      security: { email: 'security@demo.com', password: '123456' },
-      employee: { email: 'employee@demo.com', password: '123456' },
-      visitor: { email: 'visitor@demo.com', password: '123456' },
-    };
-    setForm(demos[role]);
-  };
-
   return (
     <div style={{
       minHeight: '100vh',
@@ -146,25 +136,6 @@ const Login = () => {
               {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
-
-          {/* Demo login shortcuts */}
-          <div className="divider" />
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, textAlign: 'center' }}>
-            Quick demo login
-          </p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {['admin', 'security', 'employee', 'visitor'].map(role => (
-              <button
-                key={role}
-                className="btn btn-secondary"
-                style={{ justifyContent: 'center', fontSize: 12, padding: '7px 12px', textTransform: 'capitalize' }}
-                onClick={() => demoLogin(role)}
-                type="button"
-              >
-                {role}
-              </button>
-            ))}
-          </div>
 
           <div className="divider" />
           <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>
