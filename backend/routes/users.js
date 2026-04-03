@@ -5,7 +5,7 @@ const { protect } = require('../middleware/auth');
 const { authorize } = require('../middleware/roles');
 
 router.use(protect);
-router.use(authorize('admin'));
+router.use(authorize('admin', 'security'));
 
 // GET all users
 router.get('/', async (req, res) => {
