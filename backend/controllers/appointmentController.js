@@ -1,5 +1,10 @@
 const Appointment = require('../models/Appointment');
+const Pass = require('../models/Pass');
+const Visitor = require('../models/Visitor');
+const User = require('../models/User');
+const crypto = require('crypto');
 const { sendAppointmentInvite, sendApprovalEmail } = require('../utils/sendEmail');
+const generateQR = require('../utils/generateQR');
 const { v4: uuidv4 } = require('uuid');
 
 // @GET /api/appointments
@@ -102,7 +107,73 @@ const approveAppointment = async (req, res) => {
 
     if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
 
-    // Notify visitor
+    // ── Auto-create Visitor if not linked ────────────────
+    let visitorId = appointment.visitor;
+    if (!visitorId) {
+      let visitor = await Visitor.findOne({ email: appointment.visitorEmail });
+      if (!visitor) {
+        visitor = await Visitor.create({
+          name: appointment.visitorName,
+          email: appointment.visitorEmail,
+          phone: appointment.visitorPhone || '',
+        });
+      }
+      visitorId = visitor._id;
+      appointment.visitor = visitorId;
+    }
+
+    // ── Auto-create User login account if none exists ────
+    let tempPassword = null;
+    const existingUser = await User.findOne({ email: appointment.visitorEmail });
+    if (!existingUser) {
+      tempPassword = crypto.randomBytes(4).toString('hex'); // e.g. "a3f1b9c2"
+      const newUser = await User.create({
+        name: appointment.visitorName,
+        email: appointment.visitorEmail,
+        password: tempPassword,
+        phone: appointment.visitorPhone || '',
+        role: 'visitor',
+      });
+
+      // Link user account to visitor profile
+      await Visitor.findByIdAndUpdate(visitorId, { userAccount: newUser._id });
+    }
+
+    // ── Auto-generate Pass with QR code ──────────────────
+    const appointmentDate = new Date(appointment.date);
+    const [hours, minutes] = (appointment.time || '09:00').split(':').map(Number);
+    const validFrom = new Date(appointmentDate);
+    validFrom.setHours(hours, minutes, 0, 0);
+
+    const durationMs = (appointment.duration || 480) * 60 * 1000; // default 8 hours
+    const validUntil = new Date(validFrom.getTime() + durationMs);
+
+    const pass = await Pass.create({
+      visitor: visitorId,
+      host: appointment.host._id,
+      appointment: appointment._id,
+      purpose: appointment.purpose,
+      validFrom,
+      validUntil,
+      issuedBy: req.user._id,
+    });
+
+    // Generate QR code
+    const qrBase64 = await generateQR(`VPMS:${pass.passCode}`);
+    pass.qrCode = qrBase64;
+    await pass.save();
+
+    // Link pass to appointment
+    appointment.pass = pass._id;
+    await appointment.save();
+
+    // Update visitor stats
+    await Visitor.findByIdAndUpdate(visitorId, {
+      $inc: { totalVisits: 1 },
+      lastVisit: new Date(),
+    });
+
+    // ── Notify visitor via email ─────────────────────────
     try {
       await sendApprovalEmail({
         to: appointment.visitorEmail,
@@ -110,12 +181,14 @@ const approveAppointment = async (req, res) => {
         hostName: appointment.host.name,
         date: appointment.date,
         time: appointment.time,
+        tempPassword,          // null if user already existed
+        passCode: pass.passCode,
       });
     } catch (e) {
       console.warn('Approval email failed:', e.message);
     }
 
-    res.json({ appointment });
+    res.json({ appointment, pass });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

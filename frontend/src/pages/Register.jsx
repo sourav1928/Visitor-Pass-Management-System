@@ -48,6 +48,11 @@ const Register = () => {
       if (!form.phone.trim()) return toast.error('Phone number is required');
       return true;
     }
+    if (step === 2) {
+      if (!form.idType) return toast.error('Please select an ID type');
+      if (!form.idNumber.trim()) return toast.error('ID number is required');
+      return true;
+    }
     return true;
   };
 
@@ -241,7 +246,7 @@ const Register = () => {
             <div>
               <StepHeader icon={<MdBadge />} title="Identity Verification" subtitle="Required for security clearance at entry" />
               <div className="form-group">
-                <label>ID Type <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>(optional but recommended)</span></label>
+                <label>ID Type *</label>
                 <select name="idType" value={form.idType} onChange={handleChange}>
                   <option value="">Select ID type</option>
                   <option value="aadhar">Aadhar Card</option>
@@ -251,14 +256,12 @@ const Register = () => {
                   <option value="other">Other</option>
                 </select>
               </div>
-              {form.idType && (
-                <div className="form-group">
-                  <label>ID Number</label>
-                  <InputIcon icon={<MdBadge />}>
-                    <input name="idNumber" value={form.idNumber} onChange={handleChange} placeholder="Enter your ID number" />
-                  </InputIcon>
-                </div>
-              )}
+              <div className="form-group">
+                <label>ID Number *</label>
+                <InputIcon icon={<MdBadge />}>
+                  <input name="idNumber" value={form.idNumber} onChange={handleChange} placeholder="Enter your ID number" />
+                </InputIcon>
+              </div>
 
               {/* Summary box */}
               <div style={{

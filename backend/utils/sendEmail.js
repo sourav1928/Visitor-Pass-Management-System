@@ -60,12 +60,30 @@ const sendAppointmentInvite = async ({ to, visitorName, hostName, date, time, pu
 };
 
 // ─── Send approval confirmation ───────────────────────────────
-const sendApprovalEmail = async ({ to, visitorName, hostName, date, time }) => {
+const sendApprovalEmail = async ({ to, visitorName, hostName, date, time, tempPassword, passCode }) => {
   const transporter = createTransporter();
 
   const formattedDate = new Date(date).toLocaleDateString('en-IN', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   });
+
+  const credentialsBlock = tempPassword ? `
+    <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 16px; margin: 20px 0;">
+      <p style="margin: 0 0 8px; font-weight: bold; color: #856404;">🔑 Your Login Credentials</p>
+      <table style="width: 100%; font-size: 14px; color: #333;">
+        <tr><td style="padding: 4px 0; color: #666;">Email</td><td><strong>${to}</strong></td></tr>
+        <tr><td style="padding: 4px 0; color: #666;">Password</td><td><strong style="font-family: monospace; font-size: 16px; letter-spacing: 1px;">${tempPassword}</strong></td></tr>
+      </table>
+      <p style="margin: 10px 0 0; font-size: 12px; color: #856404;">⚠️ Please change your password after first login for security.</p>
+    </div>
+  ` : '';
+
+  const passBlock = passCode ? `
+    <div style="background: #d4edda; border: 1px solid #28a745; border-radius: 8px; padding: 16px; margin: 20px 0; text-align: center;">
+      <p style="margin: 0 0 6px; font-size: 12px; color: #155724; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Your Pass Code</p>
+      <p style="margin: 0; font-family: monospace; font-size: 20px; font-weight: bold; color: #155724; letter-spacing: 2px;">${passCode}</p>
+    </div>
+  ` : '';
 
   await transporter.sendMail({
     from: process.env.EMAIL_FROM,
@@ -79,7 +97,11 @@ const sendApprovalEmail = async ({ to, visitorName, hostName, date, time }) => {
         <div style="padding: 28px; background: #f9f9f9; border-radius: 0 0 10px 10px;">
           <p>Hi <strong>${visitorName}</strong>,</p>
           <p>Your appointment with <strong>${hostName}</strong> on <strong>${formattedDate} at ${time}</strong> has been approved.</p>
-          <p>Please log in to your VisitorPass account to view your QR code pass.</p>
+
+          ${passBlock}
+          ${credentialsBlock}
+
+          <p>Log in to your VisitorPass account to view your QR code pass:</p>
           <a href="${process.env.FRONTEND_URL}/visitor" style="display: inline-block; background: #00e5a0; color: #000; font-weight: bold; padding: 12px 28px; border-radius: 8px; text-decoration: none;">
             View My Pass →
           </a>
