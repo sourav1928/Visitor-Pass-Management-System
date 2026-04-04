@@ -42,7 +42,7 @@ const getPasses = async (req, res) => {
 // @GET /api/passes/qr/:qrCode — security scans this
 const getPassByQR = async (req, res) => {
   try {
-    const passCode = req.params.qrCode.replace('VPMS:', '').trim();
+    const passCode = req.params.qrCode.replace(/VPMS:/i, '').trim().toUpperCase();
 
     const pass = await Pass.findOne({ passCode })
       .populate('visitor', 'name email phone company photo isBlacklisted')
