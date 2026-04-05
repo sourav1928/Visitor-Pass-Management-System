@@ -2,20 +2,16 @@ const nodemailer = require('nodemailer');
 
 const createTransporter = () => {
   return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: Number(process.env.EMAIL_PORT),
-    secure: false,
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, // ✅ use SSL on port 465
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
-    tls: {
-      rejectUnauthorized: false, // ✅ fixes SSL issues on Render/production
-    },
   });
 };
 
-// ─── Verify transporter on startup ────────────────────
 const verifyTransporter = async () => {
   try {
     const transporter = createTransporter();
@@ -28,7 +24,7 @@ const verifyTransporter = async () => {
 
 verifyTransporter();
 
-// ─── Send appointment invite to visitor ───────────────
+// ─── Send appointment invite ───────────────────────────
 const sendAppointmentInvite = async ({ to, visitorName, hostName, date, time, purpose, preRegLink }) => {
   const transporter = createTransporter();
 
