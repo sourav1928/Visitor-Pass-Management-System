@@ -11,10 +11,15 @@ const getPasses = async (req, res) => {
     if (status) query.status = status;
     if (visitorId) query.visitor = visitorId;
 
-    // ✅ Visitors only see their own passes
+    // ✅ Visitors only see their own passes — case insensitive email match
     if (req.user.role === 'visitor') {
-      const visitor = await Visitor.findOne({ email: req.user.email });
-      if (!visitor) return res.json({ passes: [], total: 0, page: 1, pages: 0 });
+      const visitor = await Visitor.findOne({
+        email: { $regex: new RegExp(`^${req.user.email}$`, 'i') }
+      });
+      if (!visitor) {
+        console.log(`No visitor profile found for email: ${req.user.email}`);
+        return res.json({ passes: [], total: 0, page: 1, pages: 0 });
+      }
       query.visitor = visitor._id;
     }
 
@@ -39,7 +44,7 @@ const getPasses = async (req, res) => {
   }
 };
 
-// @GET /api/passes/qr/:qrCode — security scans this
+// @GET /api/passes/qr/:qrCode
 const getPassByQR = async (req, res) => {
   try {
     const passCode = req.params.qrCode.replace(/VPMS:/i, '').trim().toUpperCase();
@@ -51,13 +56,11 @@ const getPassByQR = async (req, res) => {
 
     if (!pass) return res.status(404).json({ message: 'Pass not found. Invalid QR code.' });
 
-    // Auto-expire
     if (new Date() > new Date(pass.validUntil) && pass.status === 'active') {
       pass.status = 'expired';
       await pass.save();
     }
 
-    // Block blacklisted visitors
     if (pass.visitor?.isBlacklisted) {
       return res.status(403).json({ message: 'Visitor is blacklisted', pass });
     }
@@ -108,12 +111,10 @@ const issuePass = async (req, res) => {
       floor, room,
     });
 
-    // Generate QR
     const qrBase64 = await generateQR(`VPMS:${pass.passCode}`);
     pass.qrCode = qrBase64;
     await pass.save();
 
-    // Update visitor stats
     await Visitor.findByIdAndUpdate(visitorId, {
       $inc: { totalVisits: 1 },
       lastVisit: new Date(),
@@ -136,12 +137,7 @@ const revokePass = async (req, res) => {
   try {
     const pass = await Pass.findByIdAndUpdate(
       req.params.id,
-      {
-        status: 'revoked',
-        revokedBy: req.user._id,
-        revokedAt: new Date(),
-        revokeReason: req.body.reason || 'Revoked by admin',
-      },
+      { status: 'revoked', revokedBy: req.user._id, revokedAt: new Date(), revokeReason: req.body.reason || 'Revoked by admin' },
       { new: true }
     );
     if (!pass) return res.status(404).json({ message: 'Pass not found' });

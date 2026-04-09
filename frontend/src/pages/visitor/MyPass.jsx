@@ -16,14 +16,12 @@ const MyPass = () => {
   const fetchPasses = async () => {
     setLoading(true);
     try {
-      const res = await passAPI.getAll({ limit: 10 });
-      // Filter passes for this visitor
-      const myPasses = (res.data.passes || []).filter(
-        p => p.visitor?.email === user?.email || p.visitor?.userAccount === user?._id
-      );
+      const res = await passAPI.getAll({ limit: 20 });
+      // ✅ Backend already filters by visitor email — just use all returned passes
+      const myPasses = res.data.passes || [];
       setPasses(myPasses);
       if (myPasses.length > 0) setSelected(myPasses[0]);
-    } catch {
+    } catch (err) {
       toast.error('Failed to load your passes');
     } finally {
       setLoading(false);
@@ -73,23 +71,17 @@ const MyPass = () => {
           </div>
         ) : (
           <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-
-            {/* Pass list (if multiple) */}
             {passes.length > 1 && (
               <div style={{ width: 240 }}>
                 <h3 style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Your Passes</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {passes.map(p => (
-                    <div
-                      key={p._id}
-                      onClick={() => setSelected(p)}
-                      style={{
-                        padding: '12px 14px',
-                        background: selected?._id === p._id ? 'var(--accent-dim)' : 'var(--surface)',
-                        border: `1px solid ${selected?._id === p._id ? 'var(--accent)' : 'var(--border)'}`,
-                        borderRadius: 9, cursor: 'pointer',
-                      }}
-                    >
+                    <div key={p._id} onClick={() => setSelected(p)} style={{
+                      padding: '12px 14px',
+                      background: selected?._id === p._id ? 'var(--accent-dim)' : 'var(--surface)',
+                      border: `1px solid ${selected?._id === p._id ? 'var(--accent)' : 'var(--border)'}`,
+                      borderRadius: 9, cursor: 'pointer',
+                    }}>
                       <div style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--accent)' }}>{p.passCode}</div>
                       <div style={{ fontSize: 13, fontWeight: 500, marginTop: 2 }}>{p.purpose}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{format(new Date(p.validFrom), 'dd MMM yyyy')}</div>
@@ -99,19 +91,12 @@ const MyPass = () => {
               </div>
             )}
 
-            {/* Selected pass card */}
             {selected && (
               <div style={{ flex: 1, minWidth: 300, maxWidth: 460 }}>
-                <div style={{
-                  background: 'var(--surface)',
-                  border: `1px solid ${statusColor[selected.status] || 'var(--border)'}`,
-                  borderRadius: 16, overflow: 'hidden',
-                }}>
-                  {/* Header */}
+                <div style={{ background: 'var(--surface)', border: `1px solid ${statusColor[selected.status] || 'var(--border)'}`, borderRadius: 16, overflow: 'hidden' }}>
                   <div style={{
                     background: `linear-gradient(135deg, ${statusColor[selected.status] || '#00e5a0'} 0%, ${statusColor[selected.status] || '#00c98a'}cc 100%)`,
-                    padding: '20px 24px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   }}>
                     <div>
                       <div style={{ color: 'rgba(0,0,0,0.6)', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Visitor Pass</div>
@@ -125,7 +110,6 @@ const MyPass = () => {
                   </div>
 
                   <div style={{ padding: 24 }}>
-                    {/* QR Code */}
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
                       <div style={{ background: '#fff', padding: 14, borderRadius: 12, border: '1px solid var(--border)' }}>
                         <QRCodeSVG value={`VPMS:${selected.passCode}`} size={160} bgColor="#ffffff" fgColor="#000000" level="M" />
@@ -138,7 +122,6 @@ const MyPass = () => {
 
                     <div className="divider" />
 
-                    {/* Details */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 20 }}>
                       {[
                         { icon: <MdPerson />, label: 'Visitor', value: selected.visitor?.name || user?.name },
@@ -164,16 +147,11 @@ const MyPass = () => {
                       </div>
                     )}
 
-                    <button
-                      className="btn btn-secondary"
-                      style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
-                      onClick={() => downloadPDF(selected._id, selected.passCode)}
-                    >
+                    <button className="btn btn-secondary" style={{ width: '100%', justifyContent: 'center', marginTop: 16 }} onClick={() => downloadPDF(selected._id, selected.passCode)}>
                       <MdDownload /> Download PDF Pass
                     </button>
                   </div>
                 </div>
-
                 <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', marginTop: 12 }}>
                   Valid only for the date and time shown. Carry a valid photo ID.
                 </p>
