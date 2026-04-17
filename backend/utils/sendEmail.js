@@ -1,9 +1,9 @@
 const https = require('https');
 
-const sendBrevoEmail = ({ to, subject, html, fromName, fromEmail }) => {
+const sendBrevoEmail = ({ to, subject, html }) => {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify({
-      sender: { name: fromName || 'VisitorPass', email: fromEmail || process.env.BREVO_SENDER_EMAIL },
+      sender: { name: 'VisitorPass', email: process.env.BREVO_SENDER_EMAIL },
       to: [{ email: to }],
       subject,
       htmlContent: html,
@@ -105,21 +105,32 @@ const sendApprovalEmail = async ({ to, visitorName, hostName, date, time, tempPa
 
   console.log(`📧 Sending approval email to: ${to}`);
 
+  // ✅ Always show login section
+  // If new account: show generated password
+  // If existing account: tell them to use their existing password
   const credentialsBlock = tempPassword ? `
     <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 16px; margin: 20px 0;">
       <p style="margin: 0 0 8px; font-weight: bold; color: #856404;">🔑 Your Login Credentials</p>
       <table style="width: 100%; font-size: 14px; color: #333;">
         <tr><td style="padding: 4px 0; color: #666;">Email</td><td><strong>${to}</strong></td></tr>
-        <tr><td style="padding: 4px 0; color: #666;">Password</td><td><strong style="font-family: monospace; font-size: 16px;">${tempPassword}</strong></td></tr>
+        <tr><td style="padding: 4px 0; color: #666;">Password</td><td><strong style="font-family: monospace; font-size: 16px; letter-spacing: 1px;">${tempPassword}</strong></td></tr>
       </table>
       <p style="margin: 10px 0 0; font-size: 12px; color: #856404;">⚠️ Please change your password after first login.</p>
     </div>
-  ` : '';
+  ` : `
+    <div style="background: #e8f4fd; border: 1px solid #3d7fff; border-radius: 8px; padding: 16px; margin: 20px 0;">
+      <p style="margin: 0 0 8px; font-weight: bold; color: #1a56db;">🔑 Login to View Your Pass</p>
+      <table style="width: 100%; font-size: 14px; color: #333;">
+        <tr><td style="padding: 4px 0; color: #666;">Email</td><td><strong>${to}</strong></td></tr>
+        <tr><td style="padding: 4px 0; color: #666;">Password</td><td><strong>Use your existing password</strong></td></tr>
+      </table>
+    </div>
+  `;
 
   const passBlock = passCode ? `
     <div style="background: #d4edda; border: 1px solid #28a745; border-radius: 8px; padding: 16px; margin: 20px 0; text-align: center;">
-      <p style="margin: 0 0 6px; font-size: 12px; color: #155724; font-weight: 600; text-transform: uppercase;">Your Pass Code</p>
-      <p style="margin: 0; font-family: monospace; font-size: 20px; font-weight: bold; color: #155724; letter-spacing: 2px;">${passCode}</p>
+      <p style="margin: 0 0 6px; font-size: 12px; color: #155724; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Your Pass Code</p>
+      <p style="margin: 0; font-family: monospace; font-size: 22px; font-weight: bold; color: #155724; letter-spacing: 3px;">${passCode}</p>
     </div>
   ` : '';
 
@@ -136,10 +147,13 @@ const sendApprovalEmail = async ({ to, visitorName, hostName, date, time, tempPa
           <p>Your appointment with <strong>${hostName}</strong> on <strong>${formattedDate} at ${time}</strong> has been approved.</p>
           ${passBlock}
           ${credentialsBlock}
-          <p>Log in to your VisitorPass account to view your QR code pass:</p>
+          <p style="color: #444;">Log in to your VisitorPass account to view your QR code pass:</p>
           <a href="${process.env.FRONTEND_URL}/visitor" style="display: inline-block; background: #00e5a0; color: #000; font-weight: bold; padding: 12px 28px; border-radius: 8px; text-decoration: none;">
             View My Pass →
           </a>
+          <p style="color: #888; font-size: 12px; margin-top: 20px;">
+            Show the QR code at the security gate for entry. Carry a valid photo ID.
+          </p>
         </div>
       </div>
     `,
