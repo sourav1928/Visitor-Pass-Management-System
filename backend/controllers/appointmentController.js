@@ -4,6 +4,7 @@ const Visitor = require('../models/Visitor');
 const User = require('../models/User');
 const crypto = require('crypto');
 const { sendAppointmentInvite, sendApprovalEmail } = require('../utils/sendEmail');
+const { sendInviteSMS, sendApprovalSMS } = require('../utils/sendSMS');
 const generateQR = require('../utils/generateQR');
 const { v4: uuidv4 } = require('uuid');
 
@@ -12,8 +13,6 @@ const getAppointments = async (req, res) => {
   try {
     const { status, date, page = 1, limit = 20 } = req.query;
     const query = {};
-
-    // Employees only see their own appointments
     if (req.user.role === 'employee') query.host = req.user._id;
     if (status) query.status = status;
     if (date) {
@@ -22,7 +21,6 @@ const getAppointments = async (req, res) => {
       end.setDate(end.getDate() + 1);
       query.date = { $gte: start, $lt: end };
     }
-
     const total = await Appointment.countDocuments(query);
     const appointments = await Appointment.find(query)
       .populate('host', 'name email department')
@@ -30,14 +28,13 @@ const getAppointments = async (req, res) => {
       .sort({ date: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit));
-
     res.json({ appointments, total, page: Number(page), pages: Math.ceil(total / limit) });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// @GET /api/appointments/mine  (employee's own appointments)
+// @GET /api/appointments/mine
 const myAppointments = async (req, res) => {
   try {
     const appointments = await Appointment.find({ host: req.user._id })
@@ -62,11 +59,10 @@ const getAppointment = async (req, res) => {
   }
 };
 
-// @POST /api/appointments  (employee invites a visitor)
+// @POST /api/appointments
 const createAppointment = async (req, res) => {
   try {
     const { visitorName, visitorEmail, visitorPhone, purpose, date, time, notes } = req.body;
-
     const preRegToken = uuidv4();
 
     const appointment = await Appointment.create({
@@ -76,17 +72,30 @@ const createAppointment = async (req, res) => {
       preRegToken,
     });
 
-    // Send invite email to visitor
+    const preRegLink = `${process.env.FRONTEND_URL}/pre-register/${preRegToken}`;
+
     try {
       await sendAppointmentInvite({
         to: visitorEmail,
         visitorName,
         hostName: req.user.name,
         date, time, purpose,
-        preRegLink: `${process.env.FRONTEND_URL}/pre-register/${preRegToken}`,
+        preRegLink,
       });
     } catch (emailErr) {
-      console.warn('Email send failed (non-critical):', emailErr.message);
+      console.warn('Email invite failed (non-critical):', emailErr.message);
+    }
+
+    try {
+      await sendInviteSMS({
+        phone: visitorPhone,
+        visitorName,
+        hostName: req.user.name,
+        date, time,
+        preRegLink,
+      });
+    } catch (smsErr) {
+      console.warn('SMS invite failed (non-critical):', smsErr.message);
     }
 
     const populated = await appointment.populate('host', 'name email');
@@ -96,7 +105,7 @@ const createAppointment = async (req, res) => {
   }
 };
 
-// @PATCH /api/appointments/:id/approve  (admin approves)
+// @PATCH /api/appointments/:id/approve
 const approveAppointment = async (req, res) => {
   try {
     const appointment = await Appointment.findByIdAndUpdate(
@@ -107,7 +116,7 @@ const approveAppointment = async (req, res) => {
 
     if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
 
-    // ── Auto-create Visitor if not linked ────────────────
+    // ── Auto-create Visitor profile if not linked ─────────
     let visitorId = appointment.visitor;
     if (!visitorId) {
       let visitor = await Visitor.findOne({ email: appointment.visitorEmail });
@@ -122,30 +131,38 @@ const approveAppointment = async (req, res) => {
       appointment.visitor = visitorId;
     }
 
-    // ── Auto-create User login account if none exists ────
+    // ── Auto-create User login account ────────────────────
+    // tempPassword = plain text password to send in email
+    // isNewUser = whether we just created the account
     let tempPassword = null;
+    let isNewUser = false;
+
     const existingUser = await User.findOne({ email: appointment.visitorEmail });
     if (!existingUser) {
+      // New visitor — generate password and create account
       tempPassword = crypto.randomBytes(4).toString('hex'); // e.g. "a3f1b9c2"
+      isNewUser = true;
+
       const newUser = await User.create({
         name: appointment.visitorName,
         email: appointment.visitorEmail,
-        password: tempPassword,
+        password: tempPassword, // pre-save hook will hash this
         phone: appointment.visitorPhone || '',
         role: 'visitor',
       });
 
-      // Link user account to visitor profile
       await Visitor.findByIdAndUpdate(visitorId, { userAccount: newUser._id });
+      console.log(`✅ New visitor account created: ${appointment.visitorEmail} / ${tempPassword}`);
+    } else {
+      console.log(`ℹ️  Visitor already has account: ${appointment.visitorEmail}`);
     }
 
-    // ── Auto-generate Pass with QR code ──────────────────
+    // ── Auto-generate Pass ────────────────────────────────
     const appointmentDate = new Date(appointment.date);
     const [hours, minutes] = (appointment.time || '09:00').split(':').map(Number);
     const validFrom = new Date(appointmentDate);
     validFrom.setHours(hours, minutes, 0, 0);
-
-    const durationMs = (appointment.duration || 480) * 60 * 1000; // default 8 hours
+    const durationMs = (appointment.duration || 480) * 60 * 1000;
     const validUntil = new Date(validFrom.getTime() + durationMs);
 
     const pass = await Pass.create({
@@ -158,22 +175,19 @@ const approveAppointment = async (req, res) => {
       issuedBy: req.user._id,
     });
 
-    // Generate QR code
     const qrBase64 = await generateQR(`VPMS:${pass.passCode}`);
     pass.qrCode = qrBase64;
     await pass.save();
 
-    // Link pass to appointment
     appointment.pass = pass._id;
     await appointment.save();
 
-    // Update visitor stats
     await Visitor.findByIdAndUpdate(visitorId, {
       $inc: { totalVisits: 1 },
       lastVisit: new Date(),
     });
 
-    // ── Notify visitor via email ─────────────────────────
+    // ── Send approval EMAIL with credentials + pass code ──
     try {
       await sendApprovalEmail({
         to: appointment.visitorEmail,
@@ -181,11 +195,26 @@ const approveAppointment = async (req, res) => {
         hostName: appointment.host.name,
         date: appointment.date,
         time: appointment.time,
-        tempPassword,          // null if user already existed
+        // ✅ Only send password if new account was created
+        tempPassword: isNewUser ? tempPassword : null,
         passCode: pass.passCode,
       });
     } catch (e) {
       console.warn('Approval email failed:', e.message);
+    }
+
+    // ── Send approval SMS ─────────────────────────────────
+    try {
+      await sendApprovalSMS({
+        phone: appointment.visitorPhone,
+        visitorName: appointment.visitorName,
+        hostName: appointment.host.name,
+        date: appointment.date,
+        time: appointment.time,
+        passCode: pass.passCode,
+      });
+    } catch (e) {
+      console.warn('Approval SMS failed:', e.message);
     }
 
     res.json({ appointment, pass });

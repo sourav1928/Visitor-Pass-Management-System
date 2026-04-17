@@ -20,7 +20,7 @@ const InviteVisitor = () => {
     try {
       await appointmentAPI.create(form);
       setSuccess(true);
-      toast.success('Invitation sent! Visitor will receive an email.');
+      toast.success('Invitation sent! Visitor will receive an email and SMS.');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to send invite');
     } finally {
@@ -43,9 +43,9 @@ const InviteVisitor = () => {
           </div>
           <h2 style={{ fontSize: 22, marginBottom: 8 }}>Invitation Sent!</h2>
           <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>
-            <strong>{form.visitorName}</strong> will receive an email with a pre-registration link and appointment details.
+            <strong>{form.visitorName}</strong> will receive an email and SMS with a pre-registration link and appointment details.
           </p>
-          <button className="btn btn-primary" style={{ margin: '0 auto' }} onClick={() => { setSuccess(false); setForm({ visitorName:'',visitorEmail:'',visitorPhone:'',purpose:'',date:'',time:'',notes:'' }); }}>
+          <button className="btn btn-primary" style={{ margin: '0 auto' }} onClick={() => { setSuccess(false); setForm({ visitorName: '', visitorEmail: '', visitorPhone: '', purpose: '', date: '', time: '', notes: '' }); }}>
             Invite Another
           </button>
         </div>
@@ -59,7 +59,7 @@ const InviteVisitor = () => {
       <div className="main-content">
         <div className="page-header">
           <h1>Invite a Visitor</h1>
-          <p>Send a pre-registration invite to your guest. They'll get an email with a digital pass.</p>
+          <p>Send a pre-registration invite to your guest. They'll get an email and SMS with a digital pass.</p>
         </div>
 
         <div style={{ maxWidth: 600 }}>
@@ -88,8 +88,8 @@ const InviteVisitor = () => {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Phone Number</label>
-                  <input name="visitorPhone" value={form.visitorPhone} onChange={handleChange} placeholder="+91 98765 43210" />
+                  <label>Phone Number *</label>
+                  <input name="visitorPhone" type="tel" value={form.visitorPhone} onChange={handleChange} placeholder="+91 98765 43210" required />
                 </div>
                 <div className="form-group">
                   <label>Purpose of Visit *</label>
@@ -141,7 +141,7 @@ const InviteVisitor = () => {
             background: 'var(--accent-dim)', border: '1px solid rgba(0,229,160,0.2)',
             borderRadius: 9, fontSize: 13, color: 'var(--text-soft)',
           }}>
-            💡 The visitor will receive an email with a pre-registration link. Once they complete it, a QR code pass is generated automatically.
+            💡 The visitor will receive an email and SMS with a pre-registration link. Once they complete it, a QR code pass is generated automatically.
           </div>
         </div>
       </div>
