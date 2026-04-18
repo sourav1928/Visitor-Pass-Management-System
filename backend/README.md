@@ -43,7 +43,7 @@ cp .env.example .env
 Edit `.env`:
 ```
 MONGO_URI=mongodb://localhost:27017/visitorpass
-JWT_SECRET=your_secret_key_here
+JWT_SECRET=xxxx
 EMAIL_USER=your_email@gmail.com
 EMAIL_PASS=your_gmail_app_password
 FRONTEND_URL=http://localhost:5173
@@ -101,10 +101,10 @@ Frontend runs at: `http://localhost:5173`
 
 | Role     | Email                  | Password |
 |----------|------------------------|----------|
-| Admin    | admin@demo.com         | demo123  |
-| Security | security@demo.com      | demo123  |
-| Employee | employee@demo.com      | demo123  |
-| Visitor  | visitor@demo.com       | demo123  |
+| Admin    | sourav@demo.com         | 123456  |
+| Security | security@demo.com      | 123456  |
+| Employee | employee@demo.com      | 123456  |
+| Visitor  | visitor@demo.com       | 123456  |
 
 ---
 
@@ -178,5 +178,5 @@ Frontend runs at: `http://localhost:5173`
 | Auth      | JWT, bcryptjs                       |
 | QR Code   | qrcode (backend), qrcode.react (FE) |
 | PDF       | pdfkit                              |
-| Email     | Nodemailer                          |
+| Email     | Brevomail                          |
 | Charts    | Recharts                            |
