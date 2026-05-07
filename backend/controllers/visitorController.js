@@ -1,11 +1,9 @@
 const Visitor = require('../models/Visitor');
 
-// @GET /api/visitors
 const getVisitors = async (req, res) => {
   try {
     const { search, page = 1, limit = 20, blacklisted } = req.query;
     const query = {};
-
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
@@ -14,7 +12,6 @@ const getVisitors = async (req, res) => {
         { phone: { $regex: search, $options: 'i' } },
       ];
     }
-
     if (blacklisted === 'true') query.isBlacklisted = true;
     if (blacklisted === 'false') query.isBlacklisted = false;
 
@@ -30,7 +27,6 @@ const getVisitors = async (req, res) => {
   }
 };
 
-// @GET /api/visitors/:id
 const getVisitor = async (req, res) => {
   try {
     const visitor = await Visitor.findById(req.params.id);
@@ -41,20 +37,19 @@ const getVisitor = async (req, res) => {
   }
 };
 
-// @POST /api/visitors
 const createVisitor = async (req, res) => {
   try {
     const { name, email, phone, company, idType, idNumber, address } = req.body;
 
     let visitor = await Visitor.findOne({ email });
-    if (visitor) {
-      // Return existing visitor instead of error — useful for security issuing pass
-      return res.status(200).json({ visitor, existing: true });
-    }
+    if (visitor) return res.status(200).json({ visitor, existing: true });
+
+    // ✅ Use Cloudinary URL from middleware
+    const photoUrl = req.cloudinaryPhotoUrl || undefined;
 
     visitor = await Visitor.create({
       name, email, phone, company, idType, idNumber, address,
-      photo: req.file ? `/uploads/${req.file.filename}` : undefined,
+      photo: photoUrl,
     });
 
     res.status(201).json({ visitor });
@@ -63,11 +58,11 @@ const createVisitor = async (req, res) => {
   }
 };
 
-// @PUT /api/visitors/:id
 const updateVisitor = async (req, res) => {
   try {
     const updateData = { ...req.body };
-    if (req.file) updateData.photo = `/uploads/${req.file.filename}`;
+    // ✅ Use Cloudinary URL from middleware
+    if (req.cloudinaryPhotoUrl) updateData.photo = req.cloudinaryPhotoUrl;
 
     const visitor = await Visitor.findByIdAndUpdate(
       req.params.id,
@@ -81,7 +76,6 @@ const updateVisitor = async (req, res) => {
   }
 };
 
-// @DELETE /api/visitors/:id
 const deleteVisitor = async (req, res) => {
   try {
     const visitor = await Visitor.findByIdAndDelete(req.params.id);
@@ -92,13 +86,11 @@ const deleteVisitor = async (req, res) => {
   }
 };
 
-// @PATCH /api/visitors/:id/blacklist
 const blacklistVisitor = async (req, res) => {
   try {
-    const { reason } = req.body;
     const visitor = await Visitor.findByIdAndUpdate(
       req.params.id,
-      { isBlacklisted: true, blacklistReason: reason || 'No reason provided' },
+      { isBlacklisted: true, blacklistReason: req.body.reason || 'No reason provided' },
       { new: true }
     );
     if (!visitor) return res.status(404).json({ message: 'Visitor not found' });
@@ -108,7 +100,6 @@ const blacklistVisitor = async (req, res) => {
   }
 };
 
-// @PATCH /api/visitors/:id/unblacklist
 const unblacklistVisitor = async (req, res) => {
   try {
     const visitor = await Visitor.findByIdAndUpdate(

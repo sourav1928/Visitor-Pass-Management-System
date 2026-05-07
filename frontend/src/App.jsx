@@ -7,6 +7,8 @@ import './index.css';
 // Public
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 // Admin
 import AdminDashboard from './pages/admin/Dashboard';
@@ -39,11 +41,8 @@ const RoleRedirect = () => {
 
 const toastStyle = {
   style: {
-    background: 'var(--surface)',
-    color: 'var(--text)',
-    border: '1px solid var(--border)',
-    borderRadius: '10px',
-    fontSize: '14px',
+    background: 'var(--surface)', color: 'var(--text)',
+    border: '1px solid var(--border)', borderRadius: '10px', fontSize: '14px',
   },
 };
 
@@ -53,13 +52,15 @@ function App() {
       <AuthProvider>
         <Toaster position="top-right" toastOptions={toastStyle} />
         <Routes>
-          {/* Public */}
+          {/* ── Public ────────────────────────────────── */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
           <Route path="/pre-register/:token" element={<PreRegister />} />
           <Route path="/" element={<RoleRedirect />} />
 
-          {/* Admin */}
+          {/* ── Admin ─────────────────────────────────── */}
           <Route path="/admin" element={<ProtectedRoute roles={['admin']}><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/users" element={<ProtectedRoute roles={['admin']}><UserManagement /></ProtectedRoute>} />
           <Route path="/admin/visitors" element={<ProtectedRoute roles={['admin']}><AllVisitors /></ProtectedRoute>} />
@@ -68,22 +69,22 @@ function App() {
           <Route path="/admin/logs" element={<ProtectedRoute roles={['admin']}><CheckLogs /></ProtectedRoute>} />
           <Route path="/admin/reports" element={<ProtectedRoute roles={['admin']}><Reports /></ProtectedRoute>} />
 
-          {/* Security */}
+          {/* ── Security ──────────────────────────────── */}
           <Route path="/security" element={<ProtectedRoute roles={['security', 'admin']}><SecurityDashboard /></ProtectedRoute>} />
           <Route path="/security/scan" element={<ProtectedRoute roles={['security', 'admin']}><ScanQR /></ProtectedRoute>} />
           <Route path="/security/issue" element={<ProtectedRoute roles={['security', 'admin']}><IssuePass /></ProtectedRoute>} />
           <Route path="/security/logs" element={<ProtectedRoute roles={['security', 'admin']}><CheckLogs /></ProtectedRoute>} />
 
-          {/* Employee */}
+          {/* ── Employee ──────────────────────────────── */}
           <Route path="/employee" element={<ProtectedRoute roles={['employee', 'admin']}><EmployeeDashboard /></ProtectedRoute>} />
           <Route path="/employee/invite" element={<ProtectedRoute roles={['employee', 'admin']}><InviteVisitor /></ProtectedRoute>} />
           <Route path="/employee/appointments" element={<ProtectedRoute roles={['employee', 'admin']}><EmployeeAppointments /></ProtectedRoute>} />
 
-          {/* Visitor */}
+          {/* ── Visitor ───────────────────────────────── */}
           <Route path="/visitor" element={<ProtectedRoute roles={['visitor', 'admin']}><MyPass /></ProtectedRoute>} />
           <Route path="/visitor/register" element={<ProtectedRoute roles={['visitor', 'admin']}><PreRegister /></ProtectedRoute>} />
 
-          {/* 404 */}
+          {/* ── 404 ───────────────────────────────────── */}
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </AuthProvider>
