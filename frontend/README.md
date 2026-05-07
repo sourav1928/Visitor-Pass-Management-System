@@ -69,10 +69,10 @@ http://localhost:5173
 
 | Role | Email | Password |
 |---|---|---|
-| Admin | admin@demo.com | demo123 |
-| Security | security@demo.com | demo123 |
-| Employee | employee@demo.com | demo123 |
-| Visitor | visitor@demo.com | demo123 |
+| Admin | sourav@admin.com | 123456 |
+| Security | security@demo.com | 123456 |
+| Employee | employee@demo.com | 123456 |
+| Visitor | visitor@demo.com | 123456 |
 
 ---
 
@@ -161,13 +161,6 @@ GET    /api/dashboard/purpose-stats  Visit purposes
 | PDF | PDFKit |
 | Email | Nodemailer |
 
----
-
-## Screenshots
-
-> Add screenshots here for submission
-
----
 
 ## Bonus Features Implemented
 - Visitor blacklisting
