@@ -23,8 +23,9 @@ const getPasses = async (req, res) => {
       query.visitor = visitor._id;
     }
 
+    const nowUtc = new Date();
     await Pass.updateMany(
-      { status: 'active', validUntil: { $lt: new Date() } },
+      { status: 'active', validUntil: { $lt: nowUtc } },
       { status: 'expired' }
     );
 
@@ -54,9 +55,15 @@ const getPassByQR = async (req, res) => {
 
     if (!pass) return res.status(404).json({ message: 'Pass not found. Invalid QR code.' });
 
-    if (new Date() > new Date(pass.validUntil) && pass.status === 'active') {
+    const nowUtc = new Date();
+    const validUntilUtc = new Date(pass.validUntil);
+
+    console.log(`🔍 Pass check: now=${nowUtc.toISOString()}, valid until=${validUntilUtc.toISOString()}, is expired=${nowUtc > validUntilUtc}`);
+
+    if (nowUtc > validUntilUtc && pass.status === 'active') {
       pass.status = 'expired';
       await pass.save();
+      return res.status(403).json({ message: 'This pass has expired', pass });
     }
 
     if (pass.visitor?.isBlacklisted) {
@@ -77,6 +84,14 @@ const getPass = async (req, res) => {
       .populate('host', 'name email department')
       .populate('issuedBy', 'name');
     if (!pass) return res.status(404).json({ message: 'Pass not found' });
+
+    const nowUtc = new Date();
+    const validUntilUtc = new Date(pass.validUntil);
+    if (nowUtc > validUntilUtc && pass.status === 'active') {
+      pass.status = 'expired';
+      await pass.save();
+    }
+
     res.json({ pass });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -96,13 +111,31 @@ const issuePass = async (req, res) => {
     if (visitor.isBlacklisted)
       return res.status(403).json({ message: 'Visitor is blacklisted' });
 
+    // FIX: Ensure times are in future
+    let passValidFrom = new Date();
+    let passValidUntil = new Date(Date.now() + 8 * 60 * 60 * 1000);
+
+    if (validFrom) {
+      passValidFrom = new Date(validFrom);
+      if (passValidFrom < new Date()) passValidFrom = new Date();
+    }
+
+    if (validUntil) {
+      passValidUntil = new Date(validUntil);
+      if (passValidUntil < new Date()) passValidUntil = new Date(Date.now() + 8 * 60 * 60 * 1000);
+    } else {
+      passValidUntil = new Date(passValidFrom.getTime() + 8 * 60 * 60 * 1000);
+    }
+
+    console.log(`📝 Issuing pass: from=${passValidFrom.toISOString()}, until=${passValidUntil.toISOString()}`);
+
     const pass = await Pass.create({
       visitor: visitorId,
       host: hostId,
       appointment: appointmentId || undefined,
       purpose,
-      validFrom: validFrom ? new Date(validFrom) : new Date(),
-      validUntil: validUntil ? new Date(validUntil) : new Date(Date.now() + 8 * 60 * 60 * 1000),
+      validFrom: passValidFrom,
+      validUntil: passValidUntil,
       issuedBy: req.user._id,
       floor, room,
     });
@@ -116,7 +149,6 @@ const issuePass = async (req, res) => {
       lastVisit: new Date(),
     });
 
-    // ── Auto-create login account if visitor has none ──
     let tempPassword = null;
     let isNewUser = false;
     const existingUser = await User.findOne({
@@ -132,7 +164,6 @@ const issuePass = async (req, res) => {
         password: tempPassword,
         phone: visitor.phone || '',
         role: 'visitor',
-        // ✅ visitor.photo is already a Cloudinary URL
         photo: visitor.photo || null,
       });
       await Visitor.findByIdAndUpdate(visitorId, { userAccount: newUser._id });
@@ -140,7 +171,6 @@ const issuePass = async (req, res) => {
 
     const host = await User.findById(hostId).select('name');
 
-    // ── Email pass to visitor ──────────────────────────
     try {
       await sendApprovalEmail({
         to: visitor.email,
@@ -161,7 +191,6 @@ const issuePass = async (req, res) => {
       console.warn('Pass email failed (non-critical):', emailErr.message);
     }
 
-    // ── SMS visitor ────────────────────────────────────
     try {
       await sendApprovalSMS({
         phone: visitor.phone,
